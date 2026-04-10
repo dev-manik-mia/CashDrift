@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SQLite from 'expo-sqlite';
+import uuid from 'react-native-uuid';
+import { changeLanguage } from '../i18n';
 
 export type TransactionType = 'expense' | 'income';
 export type PaymentMethod = 'cash' | 'bkash' | 'nagad' | 'bank' | 'paypal' | 'wise' | 'stripe';
@@ -27,12 +30,29 @@ interface AppState {
   setLanguage: (lang: 'en' | 'bn') => void;
 }
 
-const TRANSACTIONS_KEY = '@cashdrift_transactions';
 const THEME_KEY = '@cashdrift_theme';
 const LANG_KEY = '@language_pref';
 
-import uuid from 'react-native-uuid';
-import { changeLanguage } from '../i18n';
+let db: SQLite.SQLiteDatabase | null = null;
+
+const initDB = async () => {
+  if (!db) {
+    db = await SQLite.openDatabaseAsync('cashdrift.db');
+    await db.execAsync(`
+      PRAGMA journal_mode = WAL;
+      CREATE TABLE IF NOT EXISTS transactions (
+        id TEXT PRIMARY KEY NOT NULL,
+        type TEXT NOT NULL,
+        amount REAL NOT NULL,
+        via TEXT NOT NULL,
+        note TEXT,
+        date TEXT NOT NULL,
+        createdAt INTEGER NOT NULL
+      );
+    `);
+  }
+  return db;
+};
 
 export const useStore = create<AppState>((set, get) => ({
   transactions: [],
@@ -42,7 +62,9 @@ export const useStore = create<AppState>((set, get) => ({
 
   loadInitialData: async () => {
     try {
-      const data = await AsyncStorage.getItem(TRANSACTIONS_KEY);
+      const database = await initDB();
+      const allRows = await database.getAllAsync<Transaction>('SELECT * FROM transactions ORDER BY createdAt DESC');
+      
       const savedTheme = await AsyncStorage.getItem(THEME_KEY) as 'light' | 'dark';
       const savedLang = await AsyncStorage.getItem(LANG_KEY) as 'en' | 'bn';
 
@@ -51,7 +73,7 @@ export const useStore = create<AppState>((set, get) => ({
       }
 
       set({
-        transactions: data ? JSON.parse(data) : [],
+        transactions: allRows || [],
         theme: savedTheme || 'dark', // fallback to dark
         language: savedLang || 'en',
         isLoaded: true
@@ -69,26 +91,56 @@ export const useStore = create<AppState>((set, get) => ({
       createdAt: Date.now()
     };
     
-    const updated = [newTransaction, ...get().transactions];
-    set({ transactions: updated });
-    await AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(updated));
+    try {
+      const database = await initDB();
+      await database.runAsync(
+        'INSERT INTO transactions (id, type, amount, via, note, date, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [newTransaction.id, newTransaction.type, newTransaction.amount, newTransaction.via, newTransaction.note, newTransaction.date, newTransaction.createdAt]
+      );
+      
+      const updated = [newTransaction, ...get().transactions];
+      set({ transactions: updated.sort((a,b) => b.createdAt - a.createdAt) });
+    } catch(e) {
+      console.error("Failed to insert transaction", e);
+    }
   },
 
   deleteTransaction: async (id) => {
-    const updated = get().transactions.filter(t => t.id !== id);
-    set({ transactions: updated });
-    await AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(updated));
+    try {
+      const database = await initDB();
+      await database.runAsync('DELETE FROM transactions WHERE id = ?', [id]);
+      
+      const updated = get().transactions.filter(t => t.id !== id);
+      set({ transactions: updated });
+    } catch(e) {
+      console.error("Failed to delete transaction", e);
+    }
   },
 
   importTransactions: async (newTransactions) => {
-    const existing = get().transactions;
-    // merge by adding only ones with new IDs, or just prepend without duplicates
-    const existingIds = new Set(existing.map(t => t.id));
-    const toAdd = newTransactions.filter(t => !existingIds.has(t.id));
-    
-    const updated = [...toAdd, ...existing];
-    set({ transactions: updated });
-    await AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(updated));
+    try {
+      const database = await initDB();
+      const existing = get().transactions;
+      const existingIds = new Set(existing.map(t => t.id));
+      const toAdd = newTransactions.filter(t => !existingIds.has(t.id));
+
+      if (toAdd.length === 0) return;
+
+      // Wrap in a transaction for bulk insert
+      await database.withTransactionAsync(async () => {
+        for (const tx of toAdd) {
+          await database.runAsync(
+            'INSERT INTO transactions (id, type, amount, via, note, date, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [tx.id, tx.type, tx.amount, tx.via, tx.note, tx.date, tx.createdAt]
+          );
+        }
+      });
+
+      const updated = [...toAdd, ...existing].sort((a,b) => b.createdAt - a.createdAt);
+      set({ transactions: updated });
+    } catch(e) {
+      console.error("Failed to import transactions", e);
+    }
   },
 
   setTheme: async (theme) => {

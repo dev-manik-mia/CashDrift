@@ -26,7 +26,7 @@ Develop an expense tracker application named "CashDrift".
 - **Styling**: Native styles using React Native + Dynamic Theme provider for Dark/Light mode navigation.
 - **State Management**: React Context / Zustand for global state.
 - **Localization**: `i18next` and `react-i18next` for English/Bangla switching.
-- **Storage**: `AsyncStorage` for local offline persistence.
+- **Storage**: `expo-sqlite` for robust local relational database persistence of transactions, and `AsyncStorage` dynamically for lightweight app preferences like theme.
 - **Voice Recognition**: We'll build a parser for NLP-like parsing mapping text to fields.
 
 ## 3. Data Model Architecture
