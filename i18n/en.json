@@ -32,5 +32,6 @@
     "monthly_limit": "Monthly Expense Limit",
     "limit_exceeded_title": "Warning: Limit Exceeded",
     "limit_exceeded_msg": "This transaction pushes you above your monthly limit of {{limit}}.",
-    "proceed": "Proceed"
+    "proceed": "Proceed",
+    "voice_input": "Voice Input"
 }

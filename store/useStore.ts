@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SQLite from 'expo-sqlite';
 import uuid from 'react-native-uuid';
@@ -39,22 +40,28 @@ const LIMIT_KEY = '@cashdrift_expense_limit';
 let db: SQLite.SQLiteDatabase | null = null;
 
 const initDB = async () => {
-  if (!db) {
-    db = await SQLite.openDatabaseAsync('cashdrift.db');
-    await db.execAsync(`
-      PRAGMA journal_mode = WAL;
-      CREATE TABLE IF NOT EXISTS transactions (
-        id TEXT PRIMARY KEY NOT NULL,
-        type TEXT NOT NULL,
-        amount REAL NOT NULL,
-        via TEXT NOT NULL,
-        note TEXT,
-        date TEXT NOT NULL,
-        createdAt INTEGER NOT NULL
-      );
-    `);
+  try {
+    if (!db) {
+      db = await SQLite.openDatabaseAsync('cashdrift_db_v1');
+      // Split statements to avoid potential multi-statement parsing issues on some Android versions
+      await db.execAsync('PRAGMA journal_mode = WAL;');
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS transactions (
+          id TEXT PRIMARY KEY NOT NULL,
+          type TEXT NOT NULL,
+          amount REAL NOT NULL,
+          via TEXT NOT NULL,
+          note TEXT,
+          date TEXT NOT NULL,
+          createdAt INTEGER NOT NULL
+        );
+      `);
+    }
+    return db;
+  } catch (error) {
+    console.error("Database initialization failed:", error);
+    throw error;
   }
-  return db;
 };
 
 export const useStore = create<AppState>((set, get) => ({
@@ -91,23 +98,39 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   addTransaction: async (t) => {
-    const newTransaction: Transaction = {
-      ...t,
-      id: t.id || uuid.v4().toString(),
-      createdAt: Date.now()
-    };
-    
     try {
       const database = await initDB();
+      if (!database) throw new Error("Database not initialized");
+
+      const id = t.id || uuid.v4().toString();
+      const createdAt = Date.now();
+      const amount = Number(t.amount) || 0;
+
       await database.runAsync(
         'INSERT INTO transactions (id, type, amount, via, note, date, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [newTransaction.id, newTransaction.type, newTransaction.amount, newTransaction.via, newTransaction.note, newTransaction.date, newTransaction.createdAt]
+        [
+          id,
+          t.type || 'expense',
+          amount,
+          t.via || 'cash',
+          t.note || '',
+          t.date || new Date().toISOString(),
+          createdAt
+        ]
       );
       
+      const newTransaction: Transaction = {
+        ...t,
+        id,
+        amount,
+        createdAt
+      };
+
       const updated = [newTransaction, ...get().transactions];
       set({ transactions: updated.sort((a,b) => b.createdAt - a.createdAt) });
     } catch(e) {
-      console.error("Failed to insert transaction", e);
+      console.error("Failed to insert transaction:", e);
+      Alert.alert("Store Error", "Failed to save transaction. Please try again.");
     }
   },
 
@@ -137,7 +160,15 @@ export const useStore = create<AppState>((set, get) => ({
         for (const tx of toAdd) {
           await database.runAsync(
             'INSERT INTO transactions (id, type, amount, via, note, date, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [tx.id, tx.type, tx.amount, tx.via, tx.note, tx.date, tx.createdAt]
+            [
+              tx.id || uuid.v4().toString(),
+              tx.type || 'expense',
+              tx.amount || 0,
+              tx.via || 'cash',
+              tx.note || '',
+              tx.date || new Date().toISOString(),
+              tx.createdAt || Date.now()
+            ]
           );
         }
       });

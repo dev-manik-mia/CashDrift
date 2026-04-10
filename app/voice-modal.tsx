@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence } from 'react-native-reanimated';
@@ -89,40 +89,57 @@ export default function VoiceModal() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
-      <View style={[styles.card, { backgroundColor: currentTheme.card, borderColor: currentTheme.border }]}>
-        <Text style={[styles.title, { color: currentTheme.text }]}>Smart Dictation</Text>
-        <Text style={[styles.subtitle, { color: currentTheme.textMuted }]}>
-          Tap the Microphone button below or on your system keyboard to speak.
-        </Text>
-        
-        <TextInput
-           ref={inputRef}
-           style={[styles.input, { color: currentTheme.text, borderColor: currentTheme.border }]}
-           value={text}
-           onChangeText={setText}
-           placeholder="Listening... (Say: Spent 400 via bkash)"
-           placeholderTextColor={currentTheme.textMuted}
-           multiline
-        />
-        
-        <View style={styles.micWrapper}>
-            <Animated.View style={[styles.micContainer, { backgroundColor: currentTheme.tint }, animatedStyle]}>
-              <IconSymbol name="mic.fill" size={60} color="#fff" />
-            </Animated.View>
-        </View>
+    <View style={styles.backdrop}>
+      <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => router.back()} />
+      <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ width: '100%', alignItems: 'center' }}
+      >
+        <View style={[styles.card, { backgroundColor: currentTheme.card, borderColor: currentTheme.border }]}>
+          
+          <View style={styles.header}>
+              <Text style={[styles.modalTitle, { color: currentTheme.text }]}>{t('voice_input')}</Text>
+              <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
+                <IconSymbol name="xmark" size={24} color={currentTheme.text} />
+              </TouchableOpacity>
+          </View>
 
-        <TouchableOpacity style={[styles.btn, { backgroundColor: currentTheme.tint }]} onPress={processAudioText}>
-           <Text style={styles.btnText}>Process Voice Transaction</Text>
-        </TouchableOpacity>
-      </View>
+          <Text style={[styles.title, { color: currentTheme.text }]}>Smart Dictation</Text>
+          <Text style={[styles.subtitle, { color: currentTheme.textMuted }]}>
+            Tap the Microphone button below or on your system keyboard to speak.
+          </Text>
+          
+          <TextInput
+             ref={inputRef}
+             style={[styles.input, { color: currentTheme.text, borderColor: currentTheme.border }]}
+             value={text}
+             onChangeText={setText}
+             placeholder="Listening... (Say: Spent 400 via bkash)"
+             placeholderTextColor={currentTheme.textMuted}
+             multiline
+          />
+          
+          <View style={styles.micWrapper}>
+              <Animated.View style={[styles.micContainer, { backgroundColor: currentTheme.tint }, animatedStyle]}>
+                <IconSymbol name="mic.fill" size={60} color="#fff" />
+              </Animated.View>
+          </View>
+
+          <TouchableOpacity style={[styles.btn, { backgroundColor: currentTheme.tint }]} onPress={processAudioText}>
+             <Text style={styles.btnText}>Process Voice Transaction</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, paddingTop: 40, justifyContent: 'center' },
-  card: { padding: 24, borderRadius: 16, borderWidth: 1, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5 },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', padding: 16, paddingTop: 60 },
+  card: { padding: 24, borderRadius: 16, borderWidth: 1, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 10 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 20 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold' },
+  closeBtn: { padding: 4 },
   title: { fontSize: 22, fontWeight: 'bold', marginBottom: 8 },
   subtitle: { fontSize: 14, textAlign: 'center', marginBottom: 24 },
   input: { width: '100%', borderWidth: 1, borderRadius: 12, padding: 16, fontSize: 18, minHeight: 100, textAlignVertical: 'top', marginBottom: 24 },

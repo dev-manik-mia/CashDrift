@@ -32,5 +32,6 @@
     "monthly_limit": "মাসিক খরচের সীমা",
     "limit_exceeded_title": "সতর্কতা: সীমা অতিক্রান্ত",
     "limit_exceeded_msg": "এই লেনদেনটি আপনার মাসিক সীমা {{limit}} কে ছাড়িয়ে যাচ্ছে।",
-    "proceed": "এগিয়ে যান"
+    "proceed": "এগিয়ে যান",
+    "voice_input": "ভয়েস ইনপুট"
 }

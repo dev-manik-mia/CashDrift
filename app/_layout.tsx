@@ -48,8 +48,10 @@ export default function RootLayout() {
     <ThemeProvider value={appTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Add Transaction' }} />
-        <Stack.Screen name="voice-modal" options={{ presentation: 'modal', title: 'Voice Input' }} />
+        {/* @ts-ignore */}
+        <Stack.Screen name="modal" options={{ presentation: 'transparentModal', headerShown: false }} />
+        {/* @ts-ignore */}
+        <Stack.Screen name="voice-modal" options={{ presentation: 'transparentModal', headerShown: false }} />
       </Stack>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
     </ThemeProvider>

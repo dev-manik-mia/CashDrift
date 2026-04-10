@@ -22,6 +22,7 @@ const MAPPING = {
   'gearshape.fill': 'settings',
   'plus': 'add',
   'mic.fill': 'mic',
+  'xmark': 'close',
 } as IconMapping;
 
 /**
