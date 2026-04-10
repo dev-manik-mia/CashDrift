@@ -110,12 +110,6 @@ export default function HomeScreen() {
         />
       </ScrollView>
 
-      {/* Floating Action Button */}
-      <Link href="/modal" asChild>
-        <TouchableOpacity style={[styles.fab, { backgroundColor: currentTheme.tint }]}>
-          <IconSymbol name="plus" size={28} color="#ffffff" />
-        </TouchableOpacity>
-      </Link>
     </View>
   );
 }

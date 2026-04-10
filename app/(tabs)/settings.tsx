@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, Switch, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, View, Text, Switch, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { documentDirectory, writeAsStringAsync, readAsStringAsync, EncodingType } from 'expo-file-system';
 import { shareAsync, isAvailableAsync } from 'expo-sharing';
@@ -9,7 +9,7 @@ import { Colors } from '../../constants/theme';
 
 export default function SettingsScreen() {
   const { t } = useTranslation();
-  const { theme, language, setTheme, setLanguage, transactions, importTransactions } = useStore();
+  const { theme, language, setTheme, setLanguage, transactions, importTransactions, expenseLimit, setExpenseLimit } = useStore();
 
   const isDark = theme === 'dark';
   const isBn = language === 'bn';
@@ -88,6 +88,20 @@ export default function SettingsScreen() {
     <View style={[styles.container, { backgroundColor: Colors[theme].background }]}>
       <View style={[styles.card, { backgroundColor: Colors[theme].card, borderColor: Colors[theme].border }]}>
         <View style={styles.row}>
+          <Text style={[styles.label, { color: Colors[theme].text }]}>{t('monthly_limit')}</Text>
+          <TextInput
+            style={[styles.inputLimit, { color: Colors[theme].text, borderColor: Colors[theme].border }]}
+            value={expenseLimit ? expenseLimit.toString() : ''}
+            onChangeText={(v) => setExpenseLimit(parseFloat(v) || 0)}
+            keyboardType="numeric"
+            placeholder="0"
+            placeholderTextColor={Colors[theme].textMuted}
+          />
+        </View>
+
+        <View style={[styles.divider, { backgroundColor: Colors[theme].border }]} />
+
+        <View style={styles.row}>
           <Text style={[styles.label, { color: Colors[theme].text }]}>{t('theme')} (Dark / Light)</Text>
           <Switch 
             value={isDark} 
@@ -148,6 +162,15 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '500',
+  },
+  inputLimit: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    width: 120,
+    textAlign: 'center',
+    fontSize: 16,
   },
   button: {
     padding: 14,

@@ -28,5 +28,9 @@
     "import_csv": "Import from CSV",
     "export_success": "Successfully exported CSV!",
     "import_success": "Successfully imported transactions!",
-    "error": "Error"
+    "error": "Error",
+    "monthly_limit": "Monthly Expense Limit",
+    "limit_exceeded_title": "Warning: Limit Exceeded",
+    "limit_exceeded_msg": "This transaction pushes you above your monthly limit of {{limit}}.",
+    "proceed": "Proceed"
 }

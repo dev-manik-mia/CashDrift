@@ -49,6 +49,7 @@ export default function RootLayout() {
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Add Transaction' }} />
+        <Stack.Screen name="voice-modal" options={{ presentation: 'modal', title: 'Voice Input' }} />
       </Stack>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
     </ThemeProvider>

@@ -21,6 +21,7 @@ interface AppState {
   transactions: Transaction[];
   theme: 'light' | 'dark';
   language: 'en' | 'bn';
+  expenseLimit: number;
   isLoaded: boolean;
   addTransaction: (t: Omit<Transaction, 'id' | 'createdAt'> & { id?: string }) => void;
   deleteTransaction: (id: string) => void;
@@ -28,10 +29,12 @@ interface AppState {
   loadInitialData: () => Promise<void>;
   setTheme: (theme: 'light' | 'dark') => void;
   setLanguage: (lang: 'en' | 'bn') => void;
+  setExpenseLimit: (limit: number) => void;
 }
 
 const THEME_KEY = '@cashdrift_theme';
 const LANG_KEY = '@language_pref';
+const LIMIT_KEY = '@cashdrift_expense_limit';
 
 let db: SQLite.SQLiteDatabase | null = null;
 
@@ -58,6 +61,7 @@ export const useStore = create<AppState>((set, get) => ({
   transactions: [],
   theme: 'dark', // default dark as per request
   language: 'en',
+  expenseLimit: 0,
   isLoaded: false,
 
   loadInitialData: async () => {
@@ -67,6 +71,7 @@ export const useStore = create<AppState>((set, get) => ({
       
       const savedTheme = await AsyncStorage.getItem(THEME_KEY) as 'light' | 'dark';
       const savedLang = await AsyncStorage.getItem(LANG_KEY) as 'en' | 'bn';
+      const savedLimit = await AsyncStorage.getItem(LIMIT_KEY);
 
       if (savedLang) {
         changeLanguage(savedLang);
@@ -76,6 +81,7 @@ export const useStore = create<AppState>((set, get) => ({
         transactions: allRows || [],
         theme: savedTheme || 'dark', // fallback to dark
         language: savedLang || 'en',
+        expenseLimit: savedLimit ? parseFloat(savedLimit) : 0,
         isLoaded: true
       });
     } catch (e) {
@@ -151,5 +157,10 @@ export const useStore = create<AppState>((set, get) => ({
   setLanguage: async (lang) => {
     set({ language: lang });
     await changeLanguage(lang);
+  },
+
+  setExpenseLimit: async (limit) => {
+    set({ expenseLimit: limit });
+    await AsyncStorage.setItem(LIMIT_KEY, limit.toString());
   }
 }));

@@ -6,11 +6,10 @@ import { useStore, TransactionType, PaymentMethod } from '../store/useStore';
 import { Colors } from '../constants/theme';
 
 export default function AddTransactionModal() {
-  const { theme, addTransaction } = useStore();
+  const { theme, addTransaction, expenseLimit, transactions } = useStore();
   const { t } = useTranslation();
   const currentTheme = Colors[theme];
 
-  const [smartInput, setSmartInput] = useState('');
   const [type, setType] = useState<TransactionType>('expense');
   const [amount, setAmount] = useState('');
   const [via, setVia] = useState<PaymentMethod>('cash');
@@ -18,45 +17,15 @@ export default function AddTransactionModal() {
 
   const PAYMENT_METHODS: PaymentMethod[] = ['cash', 'bkash', 'nagad', 'bank', 'paypal', 'wise', 'stripe'];
 
-  // NLP Smart Input logic
-  const handleSmartInput = (text: string) => {
-    setSmartInput(text);
-    const lower = text.toLowerCase();
-    
-    // Default to expense
-    let newType: TransactionType = 'expense';
-    if (lower.includes('receive') || lower.includes('earned') || lower.includes('got')) {
-      newType = 'income';
-    }
-
-    // Extract amount
-    const amountMatch = lower.match(/\d+(\.\d+)?/);
-    if (amountMatch) {
-      setAmount(amountMatch[0]);
-    }
-
-    // Extract Via
-    let newVia: PaymentMethod = 'cash'; // default
-    for (const method of PAYMENT_METHODS) {
-      if (lower.includes(method)) {
-        newVia = method;
-        break;
-      }
-    }
-
-    // Extract Note
-    // "spent 400 via bkash for medicine" -> extract everything after "for "
-    const forMatch = lower.match(/(?:for|on)\s+(.+)/);
-    if (forMatch && forMatch[1]) {
-      setNote(forMatch[1].trim());
-    } else {
-      // Just set the whole text as note if 'for' isn't found, but ignore numbers and payment methods if possible
-      // to keep it simple, leave note empty or use full text
-      // Let's just update the state
-    }
-
-    setType(newType);
-    setVia(newVia);
+  const finalizeSave = (numAmount: number) => {
+    addTransaction({
+      type,
+      amount: numAmount,
+      via,
+      note,
+      date: new Date().toISOString(),
+    });
+    router.back();
   };
 
   const handleSave = () => {
@@ -66,30 +35,31 @@ export default function AddTransactionModal() {
       return;
     }
 
-    addTransaction({
-      type,
-      amount: numAmount,
-      via,
-      note: note || smartInput,
-      date: new Date().toISOString(),
-    });
+    if (type === 'expense' && expenseLimit > 0) {
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const monthlyExpense = transactions
+        .filter(t => t.type === 'expense' && t.date.startsWith(currentMonth))
+        .reduce((sum, t) => sum + t.amount, 0);
+      
+      if (monthlyExpense + numAmount > expenseLimit) {
+         Alert.alert(
+           t('limit_exceeded_title'), 
+           t('limit_exceeded_msg', { limit: expenseLimit }),
+           [
+             { text: t('cancel'), style: 'cancel' },
+             { text: t('proceed'), onPress: () => finalizeSave(numAmount) }
+           ]
+         );
+         return;
+      }
+    }
 
-    router.back();
+    finalizeSave(numAmount);
   };
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: currentTheme.background }]}>
       <View style={[styles.card, { backgroundColor: currentTheme.card, borderColor: currentTheme.border }]}>
-        <Text style={[styles.label, { color: currentTheme.text }]}>{t('smart_input')}</Text>
-        <TextInput
-          style={[styles.input, { color: currentTheme.text, borderColor: currentTheme.border }]}
-          placeholder={t('smart_input_placeholder')}
-          placeholderTextColor={currentTheme.textMuted}
-          value={smartInput}
-          onChangeText={handleSmartInput}
-        />
-
-        <View style={styles.divider} />
 
         <Text style={[styles.label, { color: currentTheme.text }]}>{t('type')}</Text>
         <View style={styles.row}>
@@ -135,11 +105,13 @@ export default function AddTransactionModal() {
 
         <Text style={[styles.label, { color: currentTheme.text, marginTop: 16 }]}>{t('note')}</Text>
         <TextInput
-          style={[styles.input, { color: currentTheme.text, borderColor: currentTheme.border }]}
+          style={[styles.input, styles.textArea, { color: currentTheme.text, borderColor: currentTheme.border }]}
           placeholder="What was this for?"
           placeholderTextColor={currentTheme.textMuted}
           value={note}
           onChangeText={setNote}
+          multiline
+          numberOfLines={4}
         />
 
         <TouchableOpacity style={[styles.button, { backgroundColor: currentTheme.tint }]} onPress={handleSave}>
@@ -151,11 +123,11 @@ export default function AddTransactionModal() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
+  container: { flex: 1, padding: 16, paddingTop: 40 },
   card: { padding: 16, borderRadius: 12, borderWidth: 1, marginBottom: 40 },
   label: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
   input: { borderWidth: 1, borderRadius: 8, padding: 12, fontSize: 16 },
-  divider: { height: 1, marginVertical: 20 },
+  textArea: { minHeight: 100, textAlignVertical: 'top' },
   row: { flexDirection: 'row', gap: 12 },
   rowScroll: { flexDirection: 'row', marginBottom: 8 },
   chip: { 
