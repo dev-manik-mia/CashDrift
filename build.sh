@@ -131,7 +131,7 @@ echo ""
 
 # Check APK if built
 if [ "$BUILD_TYPE" = "apk" ] || [ "$BUILD_TYPE" = "both" ]; then
-    APK_FILE="$OUTPUT_DIR/app-arm64-v8a-release.apk"
+    APK_FILE="$OUTPUT_DIR/app-release.apk"
     
     if [ -f "$APK_FILE" ]; then
         APK_SIZE=$(du -h "$APK_FILE" | cut -f1)
@@ -178,7 +178,7 @@ echo ""
 # Copy APK to Desktop if built
 if [ "$BUILD_TYPE" = "apk" ] || [ "$BUILD_TYPE" = "both" ]; then
     if [ -f "$APK_FILE" ]; then
-        DESKTOP_APK="$DESKTOP_DIR/HscICTPro.apk"
+        DESKTOP_APK="$DESKTOP_DIR/CashDrift.apk"
         if cp "$APK_FILE" "$DESKTOP_APK"; then
             echo -e "${GREEN}✓ APK copied to Desktop${NC}"
             echo -e "  📂 Desktop location: $DESKTOP_APK"
@@ -191,7 +191,7 @@ fi
 # Copy AAB to Desktop if built
 if [ "$BUILD_TYPE" = "aab" ] || [ "$BUILD_TYPE" = "both" ]; then
     if [ -f "$AAB_FILE" ]; then
-        DESKTOP_AAB="$DESKTOP_DIR/HscICTPro.aab"
+        DESKTOP_AAB="$DESKTOP_DIR/CashDrift.aab"
         if cp "$AAB_FILE" "$DESKTOP_AAB"; then
             echo -e "${GREEN}✓ AAB copied to Desktop${NC}"
             echo -e "  📂 Desktop location: $DESKTOP_AAB"
@@ -231,7 +231,7 @@ if [ "$BUILD_TYPE" = "apk" ] || [ "$BUILD_TYPE" = "both" ]; then
     echo -e "  1️⃣  Transfer the APK to your Android device"
     echo -e "  2️⃣  Enable 'Install from Unknown Sources' in Settings"
     echo -e "  3️⃣  Open the APK file and tap 'Install'"
-    echo -e "  4️⃣  Launch 'HSC ICT PRO' from your app drawer"
+    echo -e "  4️⃣  Launch 'CashDrift' from your app drawer"
     echo ""
 fi
 
