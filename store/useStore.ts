@@ -56,29 +56,11 @@ const initDB = async () => {
     }
 
     if (db && !isInitialized) {
-      // Split into separate calls to prevent Android NullPointerException on multi-statement strings
       await db.execAsync('PRAGMA journal_mode = WAL;');
       await db.execAsync('PRAGMA synchronous = NORMAL;');
       
-      await db.execAsync(`
-        CREATE TABLE IF NOT EXISTS transactions (
-          id TEXT PRIMARY KEY NOT NULL,
-          type TEXT NOT NULL,
-          amount REAL NOT NULL,
-          via TEXT NOT NULL,
-          note TEXT,
-          date TEXT NOT NULL,
-          createdAt INTEGER NOT NULL
-        );
-      `);
-
-      await db.execAsync(`
-        CREATE TABLE IF NOT EXISTS payment_methods (
-          id TEXT PRIMARY KEY NOT NULL,
-          name TEXT NOT NULL,
-          createdAt INTEGER NOT NULL
-        );
-      `);
+      await db.runAsync('CREATE TABLE IF NOT EXISTS transactions (id TEXT PRIMARY KEY NOT NULL, type TEXT NOT NULL, amount REAL NOT NULL, via TEXT NOT NULL, note TEXT, date TEXT NOT NULL, createdAt INTEGER NOT NULL)');
+      await db.runAsync('CREATE TABLE IF NOT EXISTS payment_methods (id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, createdAt INTEGER NOT NULL)');
 
       // Seed default payment methods if empty
       const methods = await db.getAllAsync<PaymentMethodItem>('SELECT * FROM payment_methods');
