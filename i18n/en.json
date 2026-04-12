@@ -10,7 +10,7 @@
     "add_transaction": "Add Transaction",
     "amount": "Amount",
     "type": "Type",
-    "via": "Via / Payment Method",
+    "via": "Payment Method",
     "note": "Note",
     "save": "Save",
     "expense": "Expense",
@@ -33,5 +33,10 @@
     "limit_exceeded_title": "Warning: Limit Exceeded",
     "limit_exceeded_msg": "This transaction pushes you above your monthly limit of {{limit}}.",
     "proceed": "Proceed",
-    "voice_input": "Voice Input"
+    "voice_input": "Voice Input",
+    "confirm_delete": "Confirm Delete",
+    "confirm_delete_msg": "Are you sure you want to delete this transaction?",
+    "delete": "Delete",
+    "edit_transaction": "Edit Transaction",
+    "update": "Update"
 }

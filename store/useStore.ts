@@ -6,13 +6,18 @@ import uuid from 'react-native-uuid';
 import { changeLanguage } from '../i18n';
 
 export type TransactionType = 'expense' | 'income';
-export type PaymentMethod = 'cash' | 'bkash' | 'nagad' | 'bank' | 'paypal' | 'wise' | 'stripe';
+
+export interface PaymentMethodItem {
+  id: string;
+  name: string;
+  createdAt: number;
+}
 
 export interface Transaction {
   id: string;
   type: TransactionType;
   amount: number;
-  via: PaymentMethod;
+  via: string; // Changed from enum to string for dynamic methods
   note: string;
   date: string; // ISO string
   createdAt: number;
@@ -20,17 +25,21 @@ export interface Transaction {
 
 interface AppState {
   transactions: Transaction[];
+  paymentMethods: PaymentMethodItem[];
   theme: 'light' | 'dark';
   language: 'en' | 'bn';
   expenseLimit: number;
   isLoaded: boolean;
   addTransaction: (t: Omit<Transaction, 'id' | 'createdAt'> & { id?: string }) => void;
+  updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<void>;
   deleteTransaction: (id: string) => void;
   importTransactions: (transactions: Transaction[]) => void;
   loadInitialData: () => Promise<void>;
   setTheme: (theme: 'light' | 'dark') => void;
   setLanguage: (lang: 'en' | 'bn') => void;
   setExpenseLimit: (limit: number) => void;
+  addPaymentMethod: (name: string) => Promise<void>;
+  deletePaymentMethod: (id: string) => Promise<void>;
 }
 
 const THEME_KEY = '@cashdrift_theme';
@@ -38,13 +47,19 @@ const LANG_KEY = '@language_pref';
 const LIMIT_KEY = '@cashdrift_expense_limit';
 
 let db: SQLite.SQLiteDatabase | null = null;
+let isInitialized = false;
 
 const initDB = async () => {
   try {
     if (!db) {
       db = await SQLite.openDatabaseAsync('cashdrift_db_v1');
-      // Split statements to avoid potential multi-statement parsing issues on some Android versions
+    }
+
+    if (db && !isInitialized) {
+      // Split into separate calls to prevent Android NullPointerException on multi-statement strings
       await db.execAsync('PRAGMA journal_mode = WAL;');
+      await db.execAsync('PRAGMA synchronous = NORMAL;');
+      
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS transactions (
           id TEXT PRIMARY KEY NOT NULL,
@@ -56,6 +71,38 @@ const initDB = async () => {
           createdAt INTEGER NOT NULL
         );
       `);
+
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS payment_methods (
+          id TEXT PRIMARY KEY NOT NULL,
+          name TEXT NOT NULL,
+          createdAt INTEGER NOT NULL
+        );
+      `);
+
+      // Seed default payment methods if empty
+      const methods = await db.getAllAsync<PaymentMethodItem>('SELECT * FROM payment_methods');
+      const defaults = ['Cash', 'Card', 'Bank', 'Bkash', 'Nagad', 'Rocket', 'Paypal', 'Stripe', 'Wise'];
+      
+      if (!methods || methods.length === 0) {
+        for (const name of defaults) {
+          await db.runAsync(
+            'INSERT INTO payment_methods (id, name, createdAt) VALUES (?, ?, ?)',
+            [uuid.v4().toString(), name, Date.now()]
+          );
+        }
+      } else {
+        // Add missing standard defaults if they don't exist
+        for (const name of defaults) {
+          if (!methods.find(m => m.name.toLowerCase() === name.toLowerCase())) {
+            await db.runAsync(
+              'INSERT INTO payment_methods (id, name, createdAt) VALUES (?, ?, ?)',
+              [uuid.v4().toString(), name, Date.now()]
+            );
+          }
+        }
+      }
+      isInitialized = true;
     }
     return db;
   } catch (error) {
@@ -66,7 +113,8 @@ const initDB = async () => {
 
 export const useStore = create<AppState>((set, get) => ({
   transactions: [],
-  theme: 'dark', // default dark as per request
+  paymentMethods: [],
+  theme: 'dark', 
   language: 'en',
   expenseLimit: 0,
   isLoaded: false,
@@ -75,6 +123,7 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       const database = await initDB();
       const allRows = await database.getAllAsync<Transaction>('SELECT * FROM transactions ORDER BY createdAt DESC');
+      const allMethods = await database.getAllAsync<PaymentMethodItem>('SELECT * FROM payment_methods ORDER BY createdAt ASC');
       
       const savedTheme = await AsyncStorage.getItem(THEME_KEY) as 'light' | 'dark';
       const savedLang = await AsyncStorage.getItem(LANG_KEY) as 'en' | 'bn';
@@ -86,7 +135,8 @@ export const useStore = create<AppState>((set, get) => ({
 
       set({
         transactions: allRows || [],
-        theme: savedTheme || 'dark', // fallback to dark
+        paymentMethods: allMethods || [],
+        theme: savedTheme || 'dark', 
         language: savedLang || 'en',
         expenseLimit: savedLimit ? parseFloat(savedLimit) : 0,
         isLoaded: true
@@ -134,6 +184,27 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  updateTransaction: async (id, updates) => {
+    try {
+      const database = await initDB();
+      const existing = get().transactions.find(t => t.id === id);
+      if (!existing) return;
+
+      const updatedTx = { ...existing, ...updates };
+      
+      await database.runAsync(
+        'UPDATE transactions SET type = ?, amount = ?, via = ?, note = ?, date = ? WHERE id = ?',
+        [updatedTx.type, updatedTx.amount, updatedTx.via, updatedTx.note, updatedTx.date, id]
+      );
+
+      const updatedList = get().transactions.map(t => t.id === id ? updatedTx : t);
+      set({ transactions: updatedList });
+    } catch (e) {
+      console.error("Failed to update transaction", e);
+      Alert.alert("Error", "Failed to update transaction.");
+    }
+  },
+
   deleteTransaction: async (id) => {
     try {
       const database = await initDB();
@@ -146,6 +217,28 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  addPaymentMethod: async (name: string) => {
+    try {
+      const database = await initDB();
+      const id = uuid.v4().toString();
+      const createdAt = Date.now();
+      await database.runAsync('INSERT INTO payment_methods (id, name, createdAt) VALUES (?, ?, ?)', [id, name, createdAt]);
+      set({ paymentMethods: [...get().paymentMethods, { id, name, createdAt }] });
+    } catch (e) {
+      console.error("Failed to add payment method", e);
+    }
+  },
+
+  deletePaymentMethod: async (id: string) => {
+    try {
+      const database = await initDB();
+      await database.runAsync('DELETE FROM payment_methods WHERE id = ?', [id]);
+      set({ paymentMethods: get().paymentMethods.filter(m => m.id !== id) });
+    } catch (e) {
+      console.error("Failed to delete payment method", e);
+    }
+  },
+
   importTransactions: async (newTransactions) => {
     try {
       const database = await initDB();
@@ -155,7 +248,6 @@ export const useStore = create<AppState>((set, get) => ({
 
       if (toAdd.length === 0) return;
 
-      // Wrap in a transaction for bulk insert
       await database.withTransactionAsync(async () => {
         for (const tx of toAdd) {
           await database.runAsync(

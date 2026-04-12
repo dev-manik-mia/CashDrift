@@ -1,22 +1,22 @@
 import React, { useState, useMemo } from 'react';
-import { StyleSheet, View, Text, TextInput, FlatList, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, TextInput, FlatList, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useStore, Transaction, PaymentMethod } from '../../store/useStore';
+import { router } from 'expo-router';
+import { useStore, Transaction } from '../../store/useStore';
 import { Colors } from '../../constants/theme';
 import { IconSymbol } from '../../components/ui/icon-symbol';
 
 export default function TransactionsScreen() {
-  const { theme, transactions } = useStore();
+  const { theme, transactions, paymentMethods, deleteTransaction } = useStore();
   const { t } = useTranslation();
   const currentTheme = Colors[theme];
 
-  const PAYMENT_METHODS: PaymentMethod[] = ['cash', 'bkash', 'nagad', 'bank', 'paypal', 'wise', 'stripe'];
-
   const [showFilters, setShowFilters] = useState(false);
   const [filterNote, setFilterNote] = useState('');
-  const [filterDate, setFilterDate] = useState('');
   const [filterAmount, setFilterAmount] = useState('');
-  const [filterVia, setFilterVia] = useState<PaymentMethod | ''>('');
+  const [filterVia, setFilterVia] = useState<string>('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
@@ -26,18 +26,35 @@ export default function TransactionsScreen() {
       if (filterVia && t.via !== filterVia) return false;
       // Amount match
       if (filterAmount && !t.amount.toString().includes(filterAmount)) return false;
-      // Date match (e.g., matching '2026-04' or '04-10')
-      if (filterDate && !t.date.includes(filterDate)) return false;
+      
+      // Date range match
+      if (startDate || endDate) {
+        const txDate = new Date(t.date).toISOString().split('T')[0];
+        if (startDate && txDate < startDate) return false;
+        if (endDate && txDate > endDate) return false;
+      }
 
       return true;
     });
-  }, [transactions, filterNote, filterVia, filterAmount, filterDate]);
+  }, [transactions, filterNote, filterVia, filterAmount, startDate, endDate]);
 
   const resetFilters = () => {
     setFilterNote('');
-    setFilterDate('');
     setFilterAmount('');
     setFilterVia('');
+    setStartDate('');
+    setEndDate('');
+  };
+
+  const handleDelete = (id: string) => {
+    Alert.alert(
+      t('confirm_delete'),
+      t('confirm_delete_msg'),
+      [
+        { text: t('cancel'), style: "cancel" },
+        { text: t('delete'), style: "destructive", onPress: () => deleteTransaction(id) }
+      ]
+    );
   };
 
   const renderTransaction = ({ item }: { item: Transaction }) => {
@@ -56,7 +73,17 @@ export default function TransactionsScreen() {
             {new Date(item.date).toLocaleDateString()}
           </Text>
         </View>
-        <Text style={[styles.txAmount, { color: amountColor }]}>{sign} {item.amount}</Text>
+        <View style={styles.txRight}>
+          <Text style={[styles.txAmount, { color: amountColor, marginBottom: 8 }]}>{sign} {item.amount}</Text>
+          <View style={styles.txActions}>
+            <TouchableOpacity onPress={() => router.push({ pathname: '/modal', params: { id: item.id } })} style={styles.actionBtn}>
+               <IconSymbol name="pencil" size={18} color={currentTheme.tint} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.actionBtn}>
+               <IconSymbol name="trash" size={18} color={currentTheme.expense} />
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
     );
   };
@@ -71,7 +98,7 @@ export default function TransactionsScreen() {
         <Text style={[styles.filterToggleText, { color: currentTheme.text }]}>
            {showFilters ? 'Hide Filters' : 'Smart Filters'}
         </Text>
-        {(filterNote || filterDate || filterAmount || filterVia) ? (
+        {(filterNote || startDate || endDate || filterAmount || filterVia) ? (
            <View style={[styles.activeDot, { backgroundColor: currentTheme.tint }]} />
         ) : null}
       </TouchableOpacity>
@@ -88,7 +115,7 @@ export default function TransactionsScreen() {
             />
             <TextInput
               style={[styles.input, { color: currentTheme.text, borderColor: currentTheme.border, flex: 1 }]}
-              placeholder="Amount (e.g. 400)"
+              placeholder="Amount"
               placeholderTextColor={currentTheme.textMuted}
               value={filterAmount}
               keyboardType="numeric"
@@ -96,13 +123,22 @@ export default function TransactionsScreen() {
             />
           </View>
 
-          <TextInput
-            style={[styles.input, { color: currentTheme.text, borderColor: currentTheme.border, marginBottom: 12 }]}
-            placeholder="Date Contains (e.g. 2026-04)"
-            placeholderTextColor={currentTheme.textMuted}
-            value={filterDate}
-            onChangeText={setFilterDate}
-          />
+          <View style={styles.filterRow}>
+            <TextInput
+              style={[styles.input, { color: currentTheme.text, borderColor: currentTheme.border, flex: 1, marginRight: 8 }]}
+              placeholder="Start (YYYY-MM-DD)"
+              placeholderTextColor={currentTheme.textMuted}
+              value={startDate}
+              onChangeText={setStartDate}
+            />
+            <TextInput
+              style={[styles.input, { color: currentTheme.text, borderColor: currentTheme.border, flex: 1 }]}
+              placeholder="End (YYYY-MM-DD)"
+              placeholderTextColor={currentTheme.textMuted}
+              value={endDate}
+              onChangeText={setEndDate}
+            />
+          </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
             <TouchableOpacity 
@@ -111,13 +147,13 @@ export default function TransactionsScreen() {
             >
               <Text style={!filterVia ? styles.chipTextActive : { color: currentTheme.text }}>All Methods</Text>
             </TouchableOpacity>
-            {PAYMENT_METHODS.map(m => (
+            {paymentMethods.map(m => (
               <TouchableOpacity 
-                key={m}
-                style={[styles.chip, filterVia === m && { backgroundColor: currentTheme.tint, borderColor: currentTheme.tint }]}
-                onPress={() => setFilterVia(m)}
+                key={m.id}
+                style={[styles.chip, filterVia === m.name && { backgroundColor: currentTheme.tint, borderColor: currentTheme.tint }]}
+                onPress={() => setFilterVia(m.name)}
               >
-                <Text style={filterVia === m ? styles.chipTextActive : { color: currentTheme.text }}>{m}</Text>
+                <Text style={filterVia === m.name ? styles.chipTextActive : { color: currentTheme.text }}>{m.name.toUpperCase()}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -201,6 +237,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   txLeft: { flex: 1 },
+  txRight: { alignItems: 'flex-end' },
+  txActions: { flexDirection: 'row', gap: 12 },
+  actionBtn: { padding: 4 },
   txTitle: { fontSize: 13, fontWeight: 'bold', marginBottom: 4 },
   txNote: { fontSize: 15, marginBottom: 4 },
   txDate: { fontSize: 11 },

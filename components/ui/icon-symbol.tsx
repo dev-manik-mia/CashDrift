@@ -23,6 +23,8 @@ const MAPPING = {
   'plus': 'add',
   'mic.fill': 'mic',
   'xmark': 'close',
+  'pencil': 'edit',
+  'trash': 'delete',
 } as IconMapping;
 
 /**

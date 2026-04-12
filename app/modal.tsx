@@ -1,31 +1,59 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
-import { useStore, TransactionType, PaymentMethod } from '../store/useStore';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useStore, TransactionType } from '../store/useStore';
 import { Colors } from '../constants/theme';
 import { IconSymbol } from '../components/ui/icon-symbol';
 
 export default function AddTransactionModal() {
-  const { theme, addTransaction, expenseLimit, transactions } = useStore();
+  const { theme, addTransaction, updateTransaction, expenseLimit, transactions, paymentMethods } = useStore();
   const { t } = useTranslation();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const currentTheme = Colors[theme];
 
   const [type, setType] = useState<TransactionType>('expense');
   const [amount, setAmount] = useState('');
-  const [via, setVia] = useState<PaymentMethod>('cash');
+  const [via, setVia] = useState<string>('');
   const [note, setNote] = useState('');
 
-  const PAYMENT_METHODS: PaymentMethod[] = ['cash', 'bkash', 'nagad', 'bank', 'paypal', 'wise', 'stripe'];
+  const isEdit = !!id;
+
+  useEffect(() => {
+    if (via === '' && paymentMethods.length > 0) {
+      setVia(paymentMethods[0].name);
+    }
+  }, [paymentMethods]);
+
+  useEffect(() => {
+    if (isEdit) {
+      const tx = transactions.find(t => t.id === id);
+      if (tx) {
+        setType(tx.type);
+        setAmount(tx.amount.toString());
+        setVia(tx.via);
+        setNote(tx.note);
+      }
+    }
+  }, [id]);
 
   const finalizeSave = (numAmount: number) => {
-    addTransaction({
-      type,
-      amount: numAmount,
-      via,
-      note,
-      date: new Date().toISOString(),
-    });
+    if (isEdit && id) {
+      updateTransaction(id, {
+        type,
+        amount: numAmount,
+        via,
+        note,
+      });
+    } else {
+      addTransaction({
+        type,
+        amount: numAmount,
+        via,
+        note,
+        date: new Date().toISOString(),
+      });
+    }
     router.back();
   };
 
@@ -69,7 +97,9 @@ export default function AddTransactionModal() {
           <View style={[styles.card, { backgroundColor: currentTheme.card, borderColor: currentTheme.border }]}>
             
             <View style={styles.header}>
-              <Text style={[styles.modalTitle, { color: currentTheme.text }]}>{t('add_transaction')}</Text>
+              <Text style={[styles.modalTitle, { color: currentTheme.text }]}>
+                {isEdit ? t('edit_transaction') : t('add_transaction')}
+              </Text>
               <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
                 <IconSymbol name="xmark" size={24} color={currentTheme.text} />
               </TouchableOpacity>
@@ -103,18 +133,24 @@ export default function AddTransactionModal() {
 
             <Text style={[styles.label, { color: currentTheme.text, marginTop: 16 }]}>{t('via')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.rowScroll}>
-              {PAYMENT_METHODS.map(m => (
-                <TouchableOpacity 
-                  key={m}
-                  style={[
-                    styles.chip, 
-                    via === m && { backgroundColor: currentTheme.tint, borderColor: currentTheme.tint }
-                  ]}
-                  onPress={() => setVia(m)}
-                >
-                  <Text style={via === m ? styles.chipTextActive : { color: currentTheme.text }}>{m.toUpperCase()}</Text>
-                </TouchableOpacity>
-              ))}
+              {paymentMethods.length === 0 ? (
+                <Text style={{ color: currentTheme.textMuted, paddingVertical: 8 }}>
+                  No payment methods found. Please add one in Settings.
+                </Text>
+              ) : (
+                paymentMethods.map(m => (
+                  <TouchableOpacity 
+                    key={m.id}
+                    style={[
+                      styles.chip, 
+                      via === m.name && { backgroundColor: currentTheme.tint, borderColor: currentTheme.tint }
+                    ]}
+                    onPress={() => setVia(m.name)}
+                  >
+                    <Text style={via === m.name ? styles.chipTextActive : { color: currentTheme.text }}>{m.name.toUpperCase()}</Text>
+                  </TouchableOpacity>
+                ))
+              )}
             </ScrollView>
 
             <Text style={[styles.label, { color: currentTheme.text, marginTop: 16 }]}>{t('note')}</Text>
@@ -129,7 +165,7 @@ export default function AddTransactionModal() {
             />
 
             <TouchableOpacity style={[styles.button, { backgroundColor: currentTheme.tint }]} onPress={handleSave}>
-              <Text style={styles.buttonText}>{t('save')}</Text>
+              <Text style={styles.buttonText}>{isEdit ? t('update') : t('save')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

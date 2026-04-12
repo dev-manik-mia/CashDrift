@@ -1,8 +1,7 @@
-import { Tabs } from 'expo-router';
+import { router, Tabs } from 'expo-router';
 import React from 'react';
-import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { HapticTab } from '../../components/haptic-tab';
 import { IconSymbol } from '../../components/ui/icon-symbol';
 import { Colors } from '../../constants/theme';
@@ -12,7 +11,7 @@ export default function TabLayout() {
   const { theme } = useStore();
   const { t } = useTranslation();
   const currentTheme = Colors[theme];
-  
+
   return (
     <View style={{ flex: 1 }}>
       <Tabs
@@ -22,6 +21,9 @@ export default function TabLayout() {
           tabBarStyle: {
             backgroundColor: currentTheme.card,
             borderTopColor: currentTheme.border,
+            height: 72,
+            paddingBottom: 12,
+            paddingTop: 5,
           },
           headerStyle: { backgroundColor: currentTheme.card },
           headerTintColor: currentTheme.text,
@@ -49,7 +51,7 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   fabContainer: {
     position: 'absolute',
-    bottom: 80, 
+    bottom: 100,
     right: 24,
     alignItems: 'center',
     zIndex: 999,

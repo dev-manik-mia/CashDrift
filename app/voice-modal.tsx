@@ -3,13 +3,13 @@ import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvo
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence } from 'react-native-reanimated';
-import { useStore, TransactionType, PaymentMethod } from '../store/useStore';
+import { useStore, TransactionType } from '../store/useStore';
 import { Colors } from '../constants/theme';
 import { IconSymbol } from '../components/ui/icon-symbol';
 
 export default function VoiceModal() {
   const { t } = useTranslation();
-  const { theme, addTransaction, expenseLimit, transactions } = useStore();
+  const { theme, addTransaction, expenseLimit, transactions, paymentMethods } = useStore();
   const currentTheme = Colors[theme];
   
   const [text, setText] = useState('');
@@ -33,7 +33,7 @@ export default function VoiceModal() {
     transform: [{ scale: scale.value }]
   }));
 
-  const finalizeSave = (type: TransactionType, amount: number, via: PaymentMethod, note: string) => {
+  const finalizeSave = (type: TransactionType, amount: number, via: string, note: string) => {
     addTransaction({ type, amount, via, note, date: new Date().toISOString() });
     router.back();
   };
@@ -45,7 +45,6 @@ export default function VoiceModal() {
     }
     
     const lower = text.toLowerCase();
-    const PAYMENT_METHODS: PaymentMethod[] = ['cash', 'bkash', 'nagad', 'bank', 'paypal', 'wise', 'stripe'];
     
     let newType: TransactionType = 'expense';
     if (lower.includes('receive') || lower.includes('earned') || lower.includes('got')) newType = 'income';
@@ -53,9 +52,9 @@ export default function VoiceModal() {
     const amountMatch = lower.match(/\d+(\.\d+)?/);
     const amount = amountMatch ? parseFloat(amountMatch[0]) : 0;
 
-    let newVia: PaymentMethod = 'cash';
-    for (const method of PAYMENT_METHODS) {
-      if (lower.includes(method)) { newVia = method; break; }
+    let newVia: string = paymentMethods.length > 0 ? paymentMethods[0].name : 'cash';
+    for (const method of paymentMethods) {
+      if (lower.includes(method.name.toLowerCase())) { newVia = method.name; break; }
     }
 
     const forMatch = lower.match(/(?:for|on)\s+(.+)/);
